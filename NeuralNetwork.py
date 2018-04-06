@@ -16,7 +16,7 @@ class NeuralNetwork:
             if i == 0:
                 self.input = Layer("input", units, None, activation=activation)
             # output layer
-            elif i == len(structure)-1:
+            elif i == len(structure) - 1:
                 self.output = Layer("output", units, inputs=self.hidden[-1], activation=activation)
             # hidden layer
             else:
@@ -25,7 +25,7 @@ class NeuralNetwork:
                     self.hidden.append(Layer("hidden", units, inputs=self.input, activation=activation))
                 # non-first hidden layer
                 else:
-                    self.hidden.append(Layer("hidden", units, inputs=self.hidden[i-2], activation=activation))
+                    self.hidden.append(Layer("hidden", units, inputs=self.hidden[i - 2], activation=activation))
 
     def train(self, features_list, labels, epochs, batch_size=20, learning_rate=0.001):
         """
@@ -42,9 +42,17 @@ class NeuralNetwork:
             print(guess)
 
     def feed_forward(self, features):
+        """
+        initiates the feed forward algorithm for the given features
+        :param features: features to feed through the neural network
+        :return: the resulting guess (in the form of a vector)
+        """
+        # input
         results = self.input.feed_forward(features)
+        # hidden
         for layer in self.hidden:
             results = layer.feed_forward(results)
+        # output
         results = self.output.feed_forward(results)
         return results
 
@@ -78,6 +86,11 @@ class Layer:
         return layer
 
     def feed_forward(self, inputs):
+        """
+        feeds forward the inputs to all of this layers perceptrons.
+        :param inputs: the inputs to feed to the perceptrons of this layer
+        :return: a vector containing the results of each perceptron's computations
+        """
         results = list()
         for perceptron in self.units:
             results.append(perceptron.compute(inputs))
@@ -99,6 +112,12 @@ class Perceptron:
             self.weights = None
 
     def compute(self, inputs):
+        """
+        Gets the sum of the products of each input along with its appropriate weight. Then feeds it through an
+        activation function.
+        :param inputs: the inputs to do computation on
+        :return: the result, after having gone through an activation function
+        """
         if self.weights is None:
             self.weights = np.zeros(len(inputs))
         total = 0
@@ -108,4 +127,4 @@ class Perceptron:
 
 
 x = NeuralNetwork([5, 10, 10, 2], "sigmoid")
-x.train([[1,2,3,4,5,6,7,4], [3,54,4,5,4,5,4,2]], [2,2], 20)
+x.train([[1, 2, 3, 4, 5, 6, 7, 4], [3, 54, 4, 5, 4, 5, 4, 2]], [2, 2], 20)
