@@ -27,6 +27,27 @@ class NeuralNetwork:
                 else:
                     self.hidden.append(Layer("hidden", units, inputs=self.hidden[i-2], activation=activation))
 
+    def train(self, features_list, labels, epochs, batch_size=20, learning_rate=0.001):
+        """
+        Trains the neural network on the given data
+        :param features_list: the input data for the neural network
+        :param labels: the correct answers for each of the features
+        :param epochs: amount of batch_sizes to do before halting training
+        :param batch_size: amount of guesses to do before each backprop
+        :param learning_rate: the rate at which to attempt to optimize the model
+        :return:
+        """
+        for features in features_list:
+            guess = self.feed_forward(features)
+            print(guess)
+
+    def feed_forward(self, features):
+        results = self.input.feed_forward(features)
+        for layer in self.hidden:
+            results = layer.feed_forward(results)
+        results = self.output.feed_forward(results)
+        return results
+
 
 class Layer:
     def __init__(self, _type, units, inputs, activation=None):
@@ -56,6 +77,12 @@ class Layer:
             layer.append(Perceptron(activation, inputs))
         return layer
 
+    def feed_forward(self, inputs):
+        results = list()
+        for perceptron in self.units:
+            results.append(perceptron.compute(inputs))
+        return results
+
 
 class Perceptron:
     def __init__(self, activation, inputs=None):
@@ -68,8 +95,17 @@ class Perceptron:
         self.inputs = inputs
         if inputs:
             self.weights = np.zeros(len(inputs.units))
+        else:
+            self.weights = None
+
+    def compute(self, inputs):
+        if self.weights is None:
+            self.weights = np.zeros(len(inputs))
+        total = 0
+        for i in range(len(inputs)):
+            total += inputs[i] * self.weights[i]
+        return total
 
 
 x = NeuralNetwork([5, 10, 10, 2], "sigmoid")
-print(x.hidden)
-print(x.output.units[0].weights)
+x.train([[1,2,3,4,5,6,7,4], [3,54,4,5,4,5,4,2]], [2,2], 20)
