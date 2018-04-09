@@ -1,6 +1,7 @@
 import numpy as np
 
 
+# TODO function to convert labels to onehot format. Makes it easier to calculate cost. Implement SGD
 class NeuralNetwork:
     def __init__(self, structure, activation, zeroes=True):
         """
@@ -37,9 +38,18 @@ class NeuralNetwork:
         :param learning_rate: the rate at which to attempt to optimize the model
         :return:
         """
-        for features in features_list:
-            guess = self.feed_forward(features)
-            print(guess)
+        featurecount = 0
+        for _ in range(epochs):
+            batchcosts = list()
+            for _ in range(batch_size):
+                guess = self.feed_forward(features_list[featurecount])
+                if max(guess) != labels[featurecount]:
+                    batchcosts.append(self.calculate_cost(guess, labels[featurecount]))
+                featurecount += 1
+            if batchcosts:
+                batchcosts = np.asarray(batchcosts)
+                avgcost = np.mean(batchcosts, axis=0)
+                self.compute_gradient(avgcost)
 
     def feed_forward(self, features):
         """
@@ -55,6 +65,28 @@ class NeuralNetwork:
         # output
         results = self.output.feed_forward(results)
         return results
+
+    @staticmethod
+    def calculate_cost(guess, label):
+        """
+        Calculates the cost of the guess given the label
+        :param guess: NN's guess
+        :param label: actual answer
+        :return: cost of guess given the label
+        """
+        # TODO: WONT WORK, SINCE LABEL IS CURRENTLY NOT IN OHF
+        costs = list()
+        for i in range(len(guess)):
+            costs.append(pow(guess[i] - label[i], 2))
+        return costs
+
+    def compute_gradient(self, costs):
+        """
+        Implements SGD on the costs that are passed in
+        :param costs: avg costs of this mini batch
+        :return: TODO Unsure of this right now
+        """
+        return None
 
 
 class Layer:
@@ -119,11 +151,24 @@ class Perceptron:
         :return: the result, after having gone through an activation function
         """
         if self.weights is None:
-            self.weights = np.zeros(len(inputs))
+            self.weights = np.arange(len(inputs))
         total = 0
         for i in range(len(inputs)):
             total += inputs[i] * self.weights[i]
-        return total
+        # sigmoid
+        if self.activation == "sigmoid":
+            return total / (1 + abs(total))
+        return -1
+
+
+def one_hot(labels, depth):
+    """
+    Converts the passed in labels into one hot format
+    :param labels: labels to be converted
+    :param depth: number of possible classes
+    :return: nparray of labels in one hot format
+    """
+    return None
 
 
 x = NeuralNetwork([5, 10, 10, 2], "sigmoid")
