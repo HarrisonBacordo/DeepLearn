@@ -1,7 +1,8 @@
 import numpy as np
+import random
 
 
-# TODO function to convert labels to onehot format. Makes it easier to calculate cost. Implement SGD
+# TODO Implement SGD
 class NeuralNetwork:
     def __init__(self, structure, activation, zeroes=True):
         """
@@ -43,7 +44,7 @@ class NeuralNetwork:
             batchcosts = list()
             for _ in range(batch_size):
                 guess = self.feed_forward(features_list[featurecount])
-                if max(guess) != labels[featurecount]:
+                if max(guess) != labels[featurecount].nonzero():
                     batchcosts.append(self.calculate_cost(guess, labels[featurecount]))
                 featurecount += 1
             if batchcosts:
@@ -74,7 +75,6 @@ class NeuralNetwork:
         :param label: actual answer
         :return: cost of guess given the label
         """
-        # TODO: WONT WORK, SINCE LABEL IS CURRENTLY NOT IN OHF
         costs = list()
         for i in range(len(guess)):
             costs.append(pow(guess[i] - label[i], 2))
@@ -161,15 +161,29 @@ class Perceptron:
         return -1
 
 
-def one_hot(labels, depth):
+def one_hot(labels):
     """
     Converts the passed in labels into one hot format
     :param labels: labels to be converted
-    :param depth: number of possible classes
     :return: nparray of labels in one hot format
     """
-    return None
+    # get number of unique labels
+    unique = list(set(labels))
+    numclasses = len(unique)
+    one_hots = list()
+    for label in labels:
+        onehot = np.zeros(numclasses)
+        onehot[unique.index(label)] = 1
+        one_hots.append(onehot)
+    return one_hots
 
 
-x = NeuralNetwork([5, 10, 10, 2], "sigmoid")
-x.train([[1, 2, 3, 4, 5, 6, 7, 4], [3, 54, 4, 5, 4, 5, 4, 2]], [2, 2], 20)
+x = NeuralNetwork([5, 10, 10, 5], "sigmoid")
+data = list()
+answers = list()
+for _ in range(200):
+    data.append(np.random.random_integers(0, 100, 20))
+    answers.append(random.randint(0, 5))
+answers = one_hot(answers)
+
+x.train(data, answers, 10)
