@@ -16,9 +16,8 @@ class NeuralNetwork:
         self.bias = list()
         self.nn = list()
         for i in range(len(self.structure) - 1):
-            self.nn.append(np.random.rand(self.structure[i+1], self.structure[i]))
+            self.nn.append(np.random.uniform(-1, 1, (self.structure[i+1], self.structure[i])))
             self.bias.append(np.ones(self.structure[i+1])[:, None])
-        print()
 
     def train(self, features_list, labels, epochs, batch_size=20, learning_rate=0.1):
         """
@@ -34,14 +33,12 @@ class NeuralNetwork:
         for i, features in enumerate(features_list):
             # store the nn's guess and a list of each layer's values
             guess, states = self.feed_forward(features)
-            # print("INPUT: ", features, "OUTPUT: ", guess)
-            # check if nn guessed correct
-            # if np.argmax(guess) == list(labels[featurecount]).index(1):
-            #     correct += 1
             # calculate cost and compute the gradient
-            cost = np.array(np.subtract(guess, labels[i]))
-            self.compute_gradient(np.atleast_2d(cost), states)
-            # print("EPOCH ", epoch, ": ", correct, "/", batch_size)
+            if self.structure[-1] != 1:
+                labels[i] = labels[i][:, None]
+            cost = np.atleast_2d(np.power(np.subtract(guess, labels[i]), 2))
+            print("\n\nACTUAL: \n", labels[i], "\nGUESS\n", guess, "\nCOST: ", cost)
+            self.compute_gradient(cost, states)
 
     def feed_forward(self, features):
         """
@@ -54,8 +51,6 @@ class NeuralNetwork:
         state = np.array(features)[:, None]
         states.append(state)
         for i, weights in enumerate(self.nn):
-            if i == 0:
-                print(weights, "\n")
             state = np.dot(weights, state)
             state = np.add(state, self.bias[i])
             state = sigm(state)
@@ -87,7 +82,9 @@ class NeuralNetwork:
         hidden_t = np.transpose(hstate[-1])
         # multiply the output gradient by the transposed hidden layer.
         # This is the change to be applied to the output weights.
-        weight_ho_deltas = np.dot(hidden_t, ogradient)
+        weight_ho_deltas = np.dot(ogradient, hidden_t)
+        # print("HIDDEN -> OUTPUT: \n", weight_ho_deltas, "\n")
+
         self.bias[-1] = np.add(self.bias[-1], ogradient)
         self.nn[-1] = np.add(self.nn[-1], weight_ho_deltas)
 
@@ -115,7 +112,8 @@ class NeuralNetwork:
 
             # multiply this layer's gradients by the transposed <- layer
             # This is the change to be applied to this layer's weights.
-            weight_hh_deltas = np.dot(hidden_t, hgradients)
+            weight_hh_deltas = np.dot(hgradients, hidden_t)
+            # print("INPUT -> HIDDEN: \n", weight_hh_deltas)
             self.bias[i] = np.add(self.bias[i], hgradients)
             self.nn[i] = np.add(self.nn[i], weight_hh_deltas)
             hcount -= 1
@@ -175,20 +173,5 @@ for n in range(100000):
         answers.append(0)
 answers = one_hot(answers)
 
-print(sigmoid(0.99998 * 0.85637 + 1))
-
 x.train(data, answers, 1000, batch_size=100)
-
-state, _ = x.feed_forward([0, 1])
-print("OUTPUT: ", state)
-state, _ = x.feed_forward([1, 0])
-print("OUTPUT: ", state)
-
-
-state, _ = x.feed_forward([0, 0])
-print("OUTPUT: ", state)
-
-
-state, _ = x.feed_forward([1, 1])
-print("OUTPUT: ", state)
 
