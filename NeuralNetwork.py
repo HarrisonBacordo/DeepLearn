@@ -4,32 +4,22 @@ import random
 
 # TODO Implement SGD
 class NeuralNetwork:
-    def __init__(self, structure, activation, zeroes=True):
+    def __init__(self, structure, activation):
         """
         Creates skeleton of neural network
         :param structure: a list that gives the number of layers (length of list) and the number of units in those
         layers (numbers in list).
         :param activation: type of activation function to use throughout neural network
-        :param zeroes: Whether to initialize all variables in the network to zero or not
         """
-        self.hidden = list()
-        for i, units in enumerate(structure):
-            # input layer
-            if i == 0:
-                self.input = Layer("input", units, None, activation=activation)
-            # output layer
-            elif i == len(structure) - 1:
-                self.output = Layer("output", units, inputs=self.hidden[-1], activation=activation)
-            # hidden layer
-            else:
-                # first hidden layer
-                if not self.hidden:
-                    self.hidden.append(Layer("hidden", units, inputs=self.input, activation=activation))
-                # non-first hidden layer
-                else:
-                    self.hidden.append(Layer("hidden", units, inputs=self.hidden[i - 2], activation=activation))
+        self.lr = None
+        self.structure = structure
+        self.bias = list()
+        self.nn = list()
+        for i in range(len(self.structure) - 1):
+            self.nn.append(np.random.uniform(-1, 1, (self.structure[i+1], self.structure[i])))
+            self.bias.append(np.ones(self.structure[i+1])[:, None])
 
-    def train(self, features_list, labels, epochs, batch_size=20, learning_rate=0.001):
+    def train(self, features_list, labels, epochs, batch_size=20, learning_rate=0.1):
         """
         Trains the neural network on the given data
         :param features_list: the input data for the neural network
@@ -39,126 +29,119 @@ class NeuralNetwork:
         :param learning_rate: the rate at which to attempt to optimize the model
         :return:
         """
-        featurecount = 0
-        for _ in range(epochs):
-            batchcosts = list()
-            for _ in range(batch_size):
-                guess = self.feed_forward(features_list[featurecount])
-                if max(guess) != labels[featurecount].nonzero():
-                    batchcosts.append(self.calculate_cost(guess, labels[featurecount]))
-                featurecount += 1
-            if batchcosts:
-                batchcosts = np.asarray(batchcosts)
-                avgcost = np.mean(batchcosts, axis=0)
-                self.compute_gradient(avgcost)
+        self.lr = learning_rate
+        for i, features in enumerate(features_list):
+            # store the nn's guess and a list of each layer's values
+            guess, states = self.feed_forward(features)
+            # calculate cost and compute the gradient
+            if self.structure[-1] != 1:
+                labels[i] = labels[i][:, None]
+            cost = np.atleast_2d(np.power(np.subtract(guess, labels[i]), 2))
+            print("\n\nACTUAL: \n", labels[i], "\nGUESS\n", guess, "\nCOST: ", cost)
+            self.compute_gradient(cost, states)
 
     def feed_forward(self, features):
         """
-        initiates the feed forward algorithm for the given features
+        feeds the features forward through the NN
         :param features: features to feed through the neural network
-        :return: the resulting guess (in the form of a vector)
+        :return: the resulting guess (in the form of a vector), along with the state of the NN
         """
-        # input
-        results = self.input.feed_forward(features)
-        # hidden
-        for layer in self.hidden:
-            results = layer.feed_forward(results)
-        # output
-        results = self.output.feed_forward(results)
-        return results
+        sigm = np.vectorize(sigmoid)
+        states = list()
+        state = np.array(features)[:, None]
+        states.append(state)
+        for i, weights in enumerate(self.nn):
+            state = np.dot(weights, state)
+            state = np.add(state, self.bias[i])
+            state = sigm(state)
+            states.append(state)
+        return state, states
 
-    @staticmethod
-    def calculate_cost(guess, label):
-        """
-        Calculates the cost of the guess given the label
-        :param guess: NN's guess
-        :param label: actual answer
-        :return: cost of guess given the label
-        """
-        costs = list()
-        for i in range(len(guess)):
-            costs.append(pow(guess[i] - label[i], 2))
-        return costs
-
-    def compute_gradient(self, costs):
+    def compute_gradient(self, costs, states):
         """
         Implements SGD on the costs that are passed in
         :param costs: avg costs of this mini batch
+        :param states: current state of the neural network
         :return: TODO Unsure of this right now
         """
-        return None
 
+        #     #     #     #      OUTPUT LAYER     #     #     #     #
 
-class Layer:
-    def __init__(self, _type, units, inputs, activation=None):
-        """
-        Creates a layer within a neural network
-        :param _type: Type of layer, could be either input, hidden, or output
-        :param units: number of perceptrons in this layer
-        :param inputs: the input that the perceptrons in this layer will be receiving
-        :param activation: the activation function used for perceptrons in this layer
-        """
-        self._type = _type
-        self.activation = activation
-        self.inputs = inputs
-        self.units = self.__createlayer(units, activation, inputs)
+        # calculate output gradient
+        dsig = np.vectorize(derivsig)  # vectorize the derivsig function
+        # grab hidden layers, and output layer
+        istate = states[0]
+        hstate = states[1:-1]
+        ostate = states[-1]
+        # get the gradient of the output state.
+        # multiply it by costs vector and learning rate
+        ogradient = dsig(ostate)
+        ogradient = np.multiply(costs, ogradient)
+        ogradient = np.multiply(ogradient, self.lr)
+        # transpose the the hlayer connected to the outlayer.
+        hidden_t = np.transpose(hstate[-1])
+        # multiply the output gradient by the transposed hidden layer.
+        # This is the change to be applied to the output weights.
+        weight_ho_deltas = np.dot(ogradient, hidden_t)
+        # print("HIDDEN -> OUTPUT: \n", weight_ho_deltas, "\n")
+
+        self.bias[-1] = np.add(self.bias[-1], ogradient)
+        self.nn[-1] = np.add(self.nn[-1], weight_ho_deltas)
+
+        #     #     #     #     HIDDEN LAYER     #     #     #     #
+        hcost = costs  # stores the cost of the -> layer
+        hcount = len(hstate)
+        for i in reversed(range(len(self.nn)-1)):
+            # calculate hidden gradient
+
+            # gets the errors for this layer based on the -> layer errort layer
+            who_t = np.transpose(self.nn[i+1])
+            hcost = who_t.dot(hcost)
+            # get the gradients of this layer
+            # multiply this layer's gradients by the cost of the -> layer.
+            # multiply the above by the learning rate scalar
+            hgradients = dsig(hstate[i])
+            hgradients = np.multiply(hgradients, hcost)
+            hgradients = np.multiply(hgradients, self.lr)
+            # transpose the <- layer's state
+
+            if i == 0:
+                hidden_t = np.transpose(istate)
+            else:
+                hidden_t = np.transpose(hstate[hcount-1])
+
+            # multiply this layer's gradients by the transposed <- layer
+            # This is the change to be applied to this layer's weights.
+            weight_hh_deltas = np.dot(hgradients, hidden_t)
+            # print("INPUT -> HIDDEN: \n", weight_hh_deltas)
+            self.bias[i] = np.add(self.bias[i], hgradients)
+            self.nn[i] = np.add(self.nn[i], weight_hh_deltas)
+            hcount -= 1
 
     @staticmethod
-    def __createlayer(units, activation, inputs):
-        """
-        Creates a layer with the given number of units, using the given activation function
-        :param units: number of units for this layer
-        :param activation: type of activation function to use
-        :param inputs: whether this is input layer or not
-        :return: list of perceptrons, representing a layer in the neural network
-        """
-        layer = list()
-        for i in range(units):
-            layer.append(Perceptron(activation, inputs))
-        return layer
-
-    def feed_forward(self, inputs):
-        """
-        feeds forward the inputs to all of this layers perceptrons.
-        :param inputs: the inputs to feed to the perceptrons of this layer
-        :return: a vector containing the results of each perceptron's computations
-        """
-        results = list()
-        for perceptron in self.units:
-            results.append(perceptron.compute(inputs))
-        return results
+    def compute_error(costs, weights):
+        who_t = np.transpose(weights)
+        return np.dot(who_t, costs)
 
 
-class Perceptron:
-    def __init__(self, activation, inputs=None):
-        """
-        Creates a perceptron which utilizes the given activation function
-        :param activation: type of activation function to use
-        :param inputs: the inputs that this perceptron will be receiving
-        """
-        self.activation = activation
-        self.inputs = inputs
-        if inputs:
-            self.weights = np.zeros(len(inputs.units))
-        else:
-            self.weights = None
+def sigmoid(x):
+    """
+    implements sigmoid on num
+    :param x: number to implement sigmoid on
+    :return: result from sigmoid calculation
+    """
+    return 1 / (1 + np.exp(-x))
 
-    def compute(self, inputs):
-        """
-        Gets the sum of the products of each input along with its appropriate weight. Then feeds it through an
-        activation function.
-        :param inputs: the inputs to do computation on
-        :return: the result, after having gone through an activation function
-        """
-        if self.weights is None:
-            self.weights = np.arange(len(inputs))
-        total = 0
-        for i in range(len(inputs)):
-            total += inputs[i] * self.weights[i]
-        # sigmoid
-        if self.activation == "sigmoid":
-            return total / (1 + abs(total))
-        return -1
+
+
+
+def derivsig(y):
+    """
+    implements derivative of sigmoid
+    :param y: number to implement derivsig on
+    :return: result from derivsig calculation
+    """
+    return y * (1 - y)
 
 
 def one_hot(labels):
@@ -178,12 +161,17 @@ def one_hot(labels):
     return one_hots
 
 
-x = NeuralNetwork([5, 10, 10, 5], "sigmoid")
-data = list()
+x = NeuralNetwork([2, 2, 2], "sigmoid")
+data = np.zeros((100000, 2))
 answers = list()
-for _ in range(200):
-    data.append(np.random.random_integers(0, 100, 20))
-    answers.append(random.randint(0, 5))
+for n in range(100000):
+    i = np.random.randint(0, 2, 2)
+    data[n] = i
+    if 1 in i and 0 in i:
+        answers.append(1)
+    else:
+        answers.append(0)
 answers = one_hot(answers)
 
-x.train(data, answers, 10)
+x.train(data, answers, 1000, batch_size=100)
+
