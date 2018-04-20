@@ -1,7 +1,8 @@
 import numpy as np
+import random
 
 
-# TODO function to convert labels to onehot format. Makes it easier to calculate cost. Implement SGD
+# TODO Implement SGD
 class NeuralNetwork:
     def __init__(self, structure, activation, zeroes=True):
         """
@@ -11,22 +12,22 @@ class NeuralNetwork:
         :param activation: type of activation function to use throughout neural network
         :param zeroes: Whether to initialize all variables in the network to zero or not
         """
-        self.__hidden = list()
+        self.hidden = list()
         for i, units in enumerate(structure):
             # input layer
             if i == 0:
-                self.__input = Layer("input", units, None, activation=activation)
+                self.input = Layer("input", units, None, activation=activation)
             # output layer
             elif i == len(structure) - 1:
-                self.__output = Layer("output", units, inputs=self.__hidden[-1], activation=activation)
+                self.output = Layer("output", units, inputs=self.hidden[-1], activation=activation)
             # hidden layer
             else:
                 # first hidden layer
-                if not self.__hidden:
-                    self.__hidden.append(Layer("hidden", units, inputs=self.__input, activation=activation))
+                if not self.hidden:
+                    self.hidden.append(Layer("hidden", units, inputs=self.input, activation=activation))
                 # non-first hidden layer
                 else:
-                    self.__hidden.append(Layer("hidden", units, inputs=self.__hidden[i - 2], activation=activation))
+                    self.hidden.append(Layer("hidden", units, inputs=self.hidden[i - 2], activation=activation))
 
     def train(self, features_list, labels, epochs, batch_size=20, learning_rate=0.001):
         """
@@ -42,45 +43,44 @@ class NeuralNetwork:
         for _ in range(epochs):
             batchcosts = list()
             for _ in range(batch_size):
-                guess = self.__feedforward(features_list[featurecount])
-                if max(guess) != max(labels[featurecount]):
-                    batchcosts.append(self.__calculate_cost(guess, labels[featurecount]))
+                guess = self.feed_forward(features_list[featurecount])
+                if max(guess) != labels[featurecount].nonzero():
+                    batchcosts.append(self.calculate_cost(guess, labels[featurecount]))
                 featurecount += 1
             if batchcosts:
                 batchcosts = np.asarray(batchcosts)
                 avgcost = np.mean(batchcosts, axis=0)
-                self.__computegradient(avgcost)
+                self.compute_gradient(avgcost)
 
-    def __feedforward(self, features):
+    def feed_forward(self, features):
         """
         initiates the feed forward algorithm for the given features
         :param features: features to feed through the neural network
         :return: the resulting guess (in the form of a vector)
         """
         # input
-        results = self.__input.feedforward(features)
+        results = self.input.feed_forward(features)
         # hidden
-        for layer in self.__hidden:
-            results = layer.feedforward(results)
+        for layer in self.hidden:
+            results = layer.feed_forward(results)
         # output
-        results = self.__output.feedforward(results)
+        results = self.output.feed_forward(results)
         return results
 
     @staticmethod
-    def __calculate_cost(guess, label):
+    def calculate_cost(guess, label):
         """
         Calculates the cost of the guess given the label
         :param guess: NN's guess
         :param label: actual answer
         :return: cost of guess given the label
         """
-        # TODO: WONT WORK, SINCE LABEL IS CURRENTLY NOT IN OHF
         costs = list()
         for i in range(len(guess)):
             costs.append(pow(guess[i] - label[i], 2))
         return costs
 
-    def __computegradient(self, costs):
+    def compute_gradient(self, costs):
         """
         Implements SGD on the costs that are passed in
         :param costs: avg costs of this mini batch
@@ -117,7 +117,7 @@ class Layer:
             layer.append(Perceptron(activation, inputs))
         return layer
 
-    def feedforward(self, inputs):
+    def feed_forward(self, inputs):
         """
         feeds forward the inputs to all of this layers perceptrons.
         :param inputs: the inputs to feed to the perceptrons of this layer
@@ -130,7 +130,7 @@ class Layer:
 
 
 class Perceptron:
-    def __init__(self, activation, inputs):
+    def __init__(self, activation, inputs=None):
         """
         Creates a perceptron which utilizes the given activation function
         :param activation: type of activation function to use
@@ -161,13 +161,29 @@ class Perceptron:
         return -1
 
 
-def one_hot(labels, depth):
+def one_hot(labels):
     """
     Converts the passed in labels into one hot format
     :param labels: labels to be converted
-    :param depth: number of possible classes
     :return: nparray of labels in one hot format
     """
-    return None
+    # get number of unique labels
+    unique = list(set(labels))
+    numclasses = len(unique)
+    one_hots = list()
+    for label in labels:
+        onehot = np.zeros(numclasses)
+        onehot[unique.index(label)] = 1
+        one_hots.append(onehot)
+    return one_hots
 
 
+x = NeuralNetwork([5, 10, 10, 5], "sigmoid")
+data = list()
+answers = list()
+for _ in range(200):
+    data.append(np.random.random_integers(0, 100, 20))
+    answers.append(random.randint(0, 5))
+answers = one_hot(answers)
+
+x.train(data, answers, 10)
