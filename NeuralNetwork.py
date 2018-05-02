@@ -1,8 +1,6 @@
 import numpy as np
-import random
 
 
-# TODO Implement SGD
 class NeuralNetwork:
     def __init__(self, structure, activation):
         """
@@ -15,6 +13,7 @@ class NeuralNetwork:
         self.structure = structure
         self.bias = list()
         self.nn = list()
+        self.activation = activation
         for i in range(len(self.structure) - 1):
             self.nn.append(np.random.uniform(-1, 1, (self.structure[i+1], self.structure[i])))
             self.bias.append(np.ones(self.structure[i+1])[:, None])
@@ -36,9 +35,10 @@ class NeuralNetwork:
             # calculate cost and compute the gradient
             if self.structure[-1] != 1:
                 labels[i] = labels[i][:, None]
-            cost = np.atleast_2d(np.power(np.subtract(guess, labels[i]), 2))
-            print("\n\nACTUAL: \n", labels[i], "\nGUESS\n", guess, "\nCOST: ", cost)
-            self.compute_gradient(cost, states)
+            cost = np.atleast_2d(np.subtract(labels[i], guess))
+            obj_cost = np.mean(np.abs(cost))
+            print("\n\nACTUAL: \n", labels[i], "\nGUESS\n", guess, "\nCOST: ", obj_cost)
+            self.compute_gradient(cost, states, labels[i])
 
     def feed_forward(self, features):
         """
@@ -57,7 +57,7 @@ class NeuralNetwork:
             states.append(state)
         return state, states
 
-    def compute_gradient(self, costs, states):
+    def compute_gradient(self, costs, states, label):
         """
         Implements SGD on the costs that are passed in
         :param costs: avg costs of this mini batch
@@ -95,6 +95,12 @@ class NeuralNetwork:
             # calculate hidden gradient
 
             # gets the errors for this layer based on the -> layer errort layer
+            # if i == len(self.nn) - 2:
+            #     sss = dsig(ostate)
+            # else:
+            #     sss = dsig(hstate[i+1])
+
+            # hcost = np.multiply(sss, hcost)
             who_t = np.transpose(self.nn[i+1])
             hcost = who_t.dot(hcost)
             # get the gradients of this layer
@@ -118,11 +124,6 @@ class NeuralNetwork:
             self.nn[i] = np.add(self.nn[i], weight_hh_deltas)
             hcount -= 1
 
-    @staticmethod
-    def compute_error(costs, weights):
-        who_t = np.transpose(weights)
-        return np.dot(who_t, costs)
-
 
 def sigmoid(x):
     """
@@ -131,8 +132,6 @@ def sigmoid(x):
     :return: result from sigmoid calculation
     """
     return 1 / (1 + np.exp(-x))
-
-
 
 
 def derivsig(y):
@@ -161,17 +160,22 @@ def one_hot(labels):
     return one_hots
 
 
-x = NeuralNetwork([2, 2, 2], "sigmoid")
+nn = NeuralNetwork([2, 2, 1], "sigmoid")
 data = np.zeros((100000, 2))
-answers = list()
+labels = list()
 for n in range(100000):
-    i = np.random.randint(0, 2, 2)
-    data[n] = i
-    if 1 in i and 0 in i:
-        answers.append(1)
+    rand = np.random.randint(0, 2, 2)
+    data[n] = rand
+    if 1 in rand and 0 in rand:
+        labels.append(1)
     else:
-        answers.append(0)
-answers = one_hot(answers)
+        labels.append(0)
+    # rand = np.random.randint(0, 2)
+    # data[n] = [rand]
+    # if rand == 1:
+    #     labels.append(1)
+    # else:
+    #     labels.append(0)
+# labels = one_hot(labels)
 
-x.train(data, answers, 1000, batch_size=100)
-
+nn.train(data, labels, 1000, batch_size=100)
