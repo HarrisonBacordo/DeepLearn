@@ -36,9 +36,9 @@ class NeuralNetwork:
             if self.structure[-1] != 1:
                 labels[i] = labels[i][:, None]
             cost = np.atleast_2d(np.subtract(labels[i], guess))
-            obj_cost = np.mean(np.abs(cost))
-            print("\n\nACTUAL: \n", labels[i], "\nGUESS\n", guess, "\nCOST: ", obj_cost)
-            self.compute_gradient(cost, states, labels[i])
+            # obj_cost = np.mean(np.abs(cost))
+            # print("\n\nACTUAL: \n", labels[i], "\nGUESS\n", guess, "\nCOST: ", obj_cost)
+            self.compute_gradient(cost, states)
 
     def feed_forward(self, features):
         """
@@ -57,16 +57,14 @@ class NeuralNetwork:
             states.append(state)
         return state, states
 
-    def compute_gradient(self, costs, states, label):
+    def compute_gradient(self, costs, states):
         """
         Implements SGD on the costs that are passed in
         :param costs: avg costs of this mini batch
         :param states: current state of the neural network
         :return: TODO Unsure of this right now
         """
-
         #     #     #     #      OUTPUT LAYER     #     #     #     #
-
         # calculate output gradient
         dsig = np.vectorize(derivsig)  # vectorize the derivsig function
         # grab hidden layers, and output layer
@@ -83,34 +81,28 @@ class NeuralNetwork:
         # multiply the output gradient by the transposed hidden layer.
         # This is the change to be applied to the output weights.
         weight_ho_deltas = np.dot(ogradient, hidden_t)
-        # print("HIDDEN -> OUTPUT: \n", weight_ho_deltas, "\n")
 
         self.bias[-1] = np.add(self.bias[-1], ogradient)
         self.nn[-1] = np.add(self.nn[-1], weight_ho_deltas)
 
         #     #     #     #     HIDDEN LAYER     #     #     #     #
-        hcost = costs  # stores the cost of the -> layer
+        hcosts = costs  # stores the cost of the -> layer
         hcount = len(hstate)
         for i in reversed(range(len(self.nn)-1)):
             # calculate hidden gradient
 
-            # gets the errors for this layer based on the -> layer errort layer
-            # if i == len(self.nn) - 2:
-            #     sss = dsig(ostate)
-            # else:
-            #     sss = dsig(hstate[i+1])
-
-            # hcost = np.multiply(sss, hcost)
-            who_t = np.transpose(self.nn[i+1])
-            hcost = who_t.dot(hcost)
+            # gets the errors for this layer based on the dot product of the transposed -> layer's weights
+            # and the error costs of that layer
+            whl_t = np.transpose(self.nn[i+1])
+            hcosts = whl_t.dot(hcosts)
             # get the gradients of this layer
-            # multiply this layer's gradients by the cost of the -> layer.
-            # multiply the above by the learning rate scalar
             hgradients = dsig(hstate[i])
-            hgradients = np.multiply(hgradients, hcost)
+            # multiply this layer's gradients by the cost of the -> layer.
+            hgradients = np.multiply(hgradients, hcosts)
+            # multiply the above by the learning rate scalar
             hgradients = np.multiply(hgradients, self.lr)
-            # transpose the <- layer's state
 
+            # transpose the <- layer's state
             if i == 0:
                 hidden_t = np.transpose(istate)
             else:
@@ -119,10 +111,32 @@ class NeuralNetwork:
             # multiply this layer's gradients by the transposed <- layer
             # This is the change to be applied to this layer's weights.
             weight_hh_deltas = np.dot(hgradients, hidden_t)
-            # print("INPUT -> HIDDEN: \n", weight_hh_deltas)
             self.bias[i] = np.add(self.bias[i], hgradients)
             self.nn[i] = np.add(self.nn[i], weight_hh_deltas)
             hcount -= 1
+
+    def test(self, features, labels):
+        """
+        Tests the network on the given features and labels, outputting a summary of the results
+        :param features: features to be tested on
+        :param labels: labels to be tested on
+        """
+        correct = 0
+        obj_cost = 0  # represents the sum of the mean cost of each feed-forward process
+        for i, feature in enumerate(features):
+            guess, _ = self.feed_forward(feature)
+            # check if guess was correct. If so, add 1 to the number correct
+            if np.argmax(guess) == list(labels[i]).index(1):
+                correct += 1
+            # subtract expected - actual to get the cost of each node
+            cost = np.subtract(labels[i][:, None], guess)
+            # get mean of the costs of each node to get average cost for this iteration, add this to the obj_cost
+            obj_cost += np.mean(np.abs(cost))
+
+        # print results
+        print("---------TEST SUMMARY----------")
+        print("NUMBER CORRECT: ",  correct, "OUT OF", len(features))
+        print("AVERAGE COST: ", obj_cost/len(features))
 
 
 def sigmoid(x):
@@ -160,22 +174,32 @@ def one_hot(labels):
     return one_hots
 
 
-nn = NeuralNetwork([2, 2, 1], "sigmoid")
-data = np.zeros((100000, 2))
-labels = list()
-for n in range(100000):
-    rand = np.random.randint(0, 2, 2)
-    data[n] = rand
-    if 1 in rand and 0 in rand:
-        labels.append(1)
-    else:
-        labels.append(0)
-    # rand = np.random.randint(0, 2)
-    # data[n] = [rand]
-    # if rand == 1:
-    #     labels.append(1)
-    # else:
-    #     labels.append(0)
-# labels = one_hot(labels)
+def shuffle(features, labels):
+    """
+    Shuffles the given dataset based off of numpy's permutation function
+    :param features: features to shuffle
+    :param labels: labels to be shuffled
+    :return: the shuffled features and labels
+    """
+    indx = np.random.permutation(len(features))
+    return features[indx], labels[indx]
 
-nn.train(data, labels, 1000, batch_size=100)
+
+def clone_and_shuffle(features, labels, cycles):
+    """
+    Duplicates the dataset a given number of cycles, and shuffles the resulting
+    dataset on each function. This is mainly called when you don't have a sufficient
+    amount of data to train a neural network on, so you repeatedly duplicate and
+    shuffle the same data until you have a satisfactory amount
+    :param features: features to clone and shuffle
+    :param labels: labels to clone and shuffle
+    :param cycles: number of times to clone and shuffle
+    :return: the cloned and shuffled features and labels
+    """
+    feats = features
+    labls = labels
+    for i in range(cycles):
+        indx = np.random.permutation(len(feats))
+        feats = np.vstack((feats, feats[indx]))
+        labls = np.hstack((labls, labls[indx]))
+    return feats, labls
