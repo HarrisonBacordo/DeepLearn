@@ -1,11 +1,11 @@
-import NeuralNetwork as nn
+import FullyConnected as nn
 import numpy as np
 
 
-nn = nn.NeuralNetwork([2, 2, 1], "sigmoid")
-data = np.zeros((1000, 2))
+net = nn.FullyConnected([2, 12, 2], "sigmoid")
+data = np.zeros((100000, 2))
 answers = list()
-for n in range(1000):
+for n in range(100000):
     rand = np.random.randint(0, 2, 2)
     data[n] = rand
     if 1 in rand and 0 in rand:
@@ -18,6 +18,6 @@ for n in range(1000):
     #     labels.append(1)
     # else:
     #     labels.append(0)
-# labels = one_hot(labels)
+answers = nn.one_hot(answers)
 
-nn.train(data, answers, 1000, batch_size=100)
+net.train(data, answers, 1000, batch_size=100, momentum=0.8, learning_rate=5)

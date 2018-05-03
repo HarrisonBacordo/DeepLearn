@@ -1,7 +1,9 @@
 import numpy as np
+import ConvNN as cnn
+import math
 
 
-class NeuralNetwork:
+class FullyConnected:
     def __init__(self, structure, activation):
         """
         Creates skeleton of neural network
@@ -10,25 +12,41 @@ class NeuralNetwork:
         :param activation: type of activation function to use throughout neural network
         """
         self.lr = None
+        self.initial_lr = None
+        self.lr_drop = None
+        self.epochs_drop = None
+        self.momentum = None
+        self.prev_deltas = list()
         self.structure = structure
         self.bias = list()
         self.nn = list()
         self.activation = activation
+        x = math.sqrt(6/(self.structure[0] + self.structure[-1]))
         for i in range(len(self.structure) - 1):
             self.nn.append(np.random.uniform(-1, 1, (self.structure[i+1], self.structure[i])))
+            self.prev_deltas.append(np.zeros((self.structure[i+1], self.structure[i])))
             self.bias.append(np.ones(self.structure[i+1])[:, None])
 
-    def train(self, features_list, labels, epochs, batch_size=20, learning_rate=0.1):
+    def train(self, features_list, labels, epochs, batch_size=20, learn_decay=False, learning_rate=0.1, momentum=0.8,
+              lr_drop=0.5, epochs_drop=10):
         """
         Trains the neural network on the given data
         :param features_list: the input data for the neural network
         :param labels: the correct answers for each of the features
         :param epochs: amount of batch_sizes to do before halting training
         :param batch_size: amount of guesses to do before each backprop
+        :param learn_decay: whether learn decay should be implemented
         :param learning_rate: the rate at which to attempt to optimize the model
+        :param momentum: momentum of the neural network
+        :param lr_drop: rate of drop on learning rate decay
+        :param epochs_drop: how often to drop the learning rate
         :return:
         """
         self.lr = learning_rate
+        self.initial_lr = learning_rate
+        self.lr_drop = lr_drop
+        self.epochs_drop = epochs_drop
+        self.momentum = momentum
         for i, features in enumerate(features_list):
             # store the nn's guess and a list of each layer's values
             guess, states = self.feed_forward(features)
@@ -36,9 +54,11 @@ class NeuralNetwork:
             if self.structure[-1] != 1:
                 labels[i] = labels[i][:, None]
             cost = np.atleast_2d(np.subtract(labels[i], guess))
-            # obj_cost = np.mean(np.abs(cost))
-            # print("\n\nACTUAL: \n", labels[i], "\nGUESS\n", guess, "\nCOST: ", obj_cost)
+            obj_cost = np.mean(np.abs(cost))
+            print("COST: ", obj_cost)
             self.compute_gradient(cost, states)
+            if learn_decay:
+                self.lr = self.step_decay(i)
 
     def feed_forward(self, features):
         """
@@ -62,7 +82,6 @@ class NeuralNetwork:
         Implements SGD on the costs that are passed in
         :param costs: avg costs of this mini batch
         :param states: current state of the neural network
-        :return: TODO Unsure of this right now
         """
         #     #     #     #      OUTPUT LAYER     #     #     #     #
         # calculate output gradient
@@ -84,6 +103,8 @@ class NeuralNetwork:
 
         self.bias[-1] = np.add(self.bias[-1], ogradient)
         self.nn[-1] = np.add(self.nn[-1], weight_ho_deltas)
+        self.nn[-1] = np.add(self.nn[-1], self.momentum * self.prev_deltas[-1])
+        self.prev_deltas[-1] = weight_ho_deltas
 
         #     #     #     #     HIDDEN LAYER     #     #     #     #
         hcosts = costs  # stores the cost of the -> layer
@@ -113,7 +134,17 @@ class NeuralNetwork:
             weight_hh_deltas = np.dot(hgradients, hidden_t)
             self.bias[i] = np.add(self.bias[i], hgradients)
             self.nn[i] = np.add(self.nn[i], weight_hh_deltas)
+            self.nn[i] = np.add(self.nn[i], self.momentum * self.prev_deltas[i])
+            self.prev_deltas[i] = weight_hh_deltas
             hcount -= 1
+
+    def step_decay(self, epoch):
+        lr = self.initial_lr * pow(self.lr_drop,
+                                   math.floor((1+epoch) / self.epochs_drop))
+        return lr
+
+    def addconvlayers(self, structure, layers):
+        self.structure.insert(1, layers)
 
     def test(self, features, labels):
         """
