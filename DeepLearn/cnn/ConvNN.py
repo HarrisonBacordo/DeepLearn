@@ -11,10 +11,5 @@ def relu(arr):
     """
     return np.maximum(arr, 0)
 
-c1 = ConvLayer.ConvLayer(10, [5, 5])
-len(c1.filters)
-filtered_imgs = c1.execute()
-print()
-
 
 
