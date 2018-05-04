@@ -1,6 +1,6 @@
-import numpy as np
-import ConvNN as cnn
 import math
+
+import numpy as np
 
 
 class FullyConnected:

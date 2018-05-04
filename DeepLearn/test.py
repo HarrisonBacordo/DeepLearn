@@ -1,6 +1,6 @@
-import FullyConnected as nn
 import numpy as np
 
+from DeepLearn import FullyConnected as nn
 
 net = nn.FullyConnected([2, 12, 2], "sigmoid")
 data = np.zeros((100000, 2))
