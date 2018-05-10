@@ -1,8 +1,9 @@
 import numpy as np
 
 from DeepLearn import FullyConnected as nn
+from DeepLearn import Activation
 
-net = nn.FullyConnected([2, 12, 2], "sigmoid")
+net = nn.FullyConnected([2, 12, 2], [Activation.sigmoid, Activation.sigmoid, Activation.sigmoid])
 data = np.zeros((100000, 2))
 answers = list()
 for n in range(100000):
@@ -20,4 +21,4 @@ for n in range(100000):
     #     labels.append(0)
 answers = nn.one_hot(answers)
 
-net.train(data, answers, 1000, batch_size=100, momentum=0.8, learning_rate=5)
+net.train(data, answers, 1000, batch_size=100, momentum=0.8, learning_rate=3)

@@ -1,4 +1,5 @@
 import math
+from DeepLearn import Activation
 
 import numpy as np
 
@@ -66,14 +67,14 @@ class FullyConnected:
         :param features: features to feed through the neural network
         :return: the resulting guess (in the form of a vector), along with the state of the NN
         """
-        sigm = np.vectorize(sigmoid)
         states = list()
         state = np.array(features)[:, None]
         states.append(state)
         for i, weights in enumerate(self.nn):
+            activfunction = np.vectorize(self.activation[i])
             state = np.dot(weights, state)
             state = np.add(state, self.bias[i])
-            state = sigm(state)
+            state = activfunction(state)
             states.append(state)
         return state, states
 
@@ -85,14 +86,14 @@ class FullyConnected:
         """
         #     #     #     #      OUTPUT LAYER     #     #     #     #
         # calculate output gradient
-        dsig = np.vectorize(derivsig)  # vectorize the derivsig function
+        d_activfunction = np.vectorize(self.activation[-1])  # vectorize the derivsig function
         # grab hidden layers, and output layer
         istate = states[0]
         hstate = states[1:-1]
         ostate = states[-1]
         # get the gradient of the output state.
         # multiply it by costs vector and learning rate
-        ogradient = dsig(ostate)
+        ogradient = d_activfunction(ostate, deriv=True)
         ogradient = np.multiply(costs, ogradient)
         ogradient = np.multiply(ogradient, self.lr)
         # transpose the the hlayer connected to the outlayer.
@@ -110,6 +111,8 @@ class FullyConnected:
         hcosts = costs  # stores the cost of the -> layer
         hcount = len(hstate)
         for i in reversed(range(len(self.nn)-1)):
+            # change activation function
+            d_activfunction = np.vectorize(self.activation[i])
             # calculate hidden gradient
 
             # gets the errors for this layer based on the dot product of the transposed -> layer's weights
@@ -117,7 +120,7 @@ class FullyConnected:
             whl_t = np.transpose(self.nn[i+1])
             hcosts = whl_t.dot(hcosts)
             # get the gradients of this layer
-            hgradients = dsig(hstate[i])
+            hgradients = d_activfunction(hstate[i])
             # multiply this layer's gradients by the cost of the -> layer.
             hgradients = np.multiply(hgradients, hcosts)
             # multiply the above by the learning rate scalar
@@ -168,24 +171,6 @@ class FullyConnected:
         print("---------TEST SUMMARY----------")
         print("NUMBER CORRECT: ",  correct, "OUT OF", len(features))
         print("AVERAGE COST: ", obj_cost/len(features))
-
-
-def sigmoid(x):
-    """
-    implements sigmoid on num
-    :param x: number to implement sigmoid on
-    :return: result from sigmoid calculation
-    """
-    return 1 / (1 + np.exp(-x))
-
-
-def derivsig(y):
-    """
-    implements derivative of sigmoid
-    :param y: number to implement derivsig on
-    :return: result from derivsig calculation
-    """
-    return y * (1 - y)
 
 
 def one_hot(labels):

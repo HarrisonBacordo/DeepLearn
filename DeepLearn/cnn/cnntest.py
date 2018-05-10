@@ -9,6 +9,5 @@ c2 = ConvLayer.ConvLayer(pooled_imgs, 3, [5, 5])
 filtered_imgs = c2.execute()
 p2 = PoolingLayer.PoolLayer(filtered_imgs, [2, 2], 2)
 pooled_imgs = p2.execute()
-pooled_imgs.
 
 print()
