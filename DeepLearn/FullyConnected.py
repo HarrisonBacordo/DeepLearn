@@ -1,6 +1,5 @@
 import math
-from DeepLearn import Activation
-
+import pylab as plt
 import numpy as np
 
 
@@ -21,6 +20,7 @@ class FullyConnected:
         self.structure = structure
         self.bias = list()
         self.nn = list()
+        self.graph = None
         self.activation = activation
         x = math.sqrt(6/(self.structure[0] + self.structure[-1]))
         for i in range(len(self.structure) - 1):
@@ -48,18 +48,30 @@ class FullyConnected:
         self.lr_drop = lr_drop
         self.epochs_drop = epochs_drop
         self.momentum = momentum
-        for i, features in enumerate(features_list):
-            # store the nn's guess and a list of each layer's values
-            guess, states = self.feed_forward(features)
-            # calculate cost and compute the gradient
-            if self.structure[-1] != 1:
-                labels[i] = labels[i][:, None]
-            cost = np.atleast_2d(np.subtract(labels[i], guess))
-            obj_cost = np.mean(np.abs(cost))
-            print("COST: ", obj_cost)
-            self.compute_gradient(cost, states)
-            if learn_decay:
-                self.lr = self.step_decay(i)
+        avg_costs = list()
+        time = list()
+        plt.ion()
+        self.graph = plt.plot([1, 2, 3], [1, 2, 3])[0]
+        plt.axis([0, 100000, 0, 0.01])
+        for j in range(batch_size):
+            costs = np.zeros(batch_size)
+            for i, features in enumerate(features_list):
+                # store the nn's guess and a list of each layer's values
+                guess, states = self.feed_forward(features)
+                # calculate cost and compute the gradient
+                if self.structure[-1] != 1:
+                    labels[i] = labels[i][:, None]
+                cost = np.atleast_2d(np.subtract(labels[i], guess))
+                obj_cost = np.mean(np.abs(cost))
+                costs[j] = obj_cost
+                if i % batch_size == 0:
+                    avg_costs.append(np.average(costs))
+                    time.append(i)
+                    self.draw(avg_costs, time)
+                print("COST: ", obj_cost)
+                self.compute_gradient(cost, states)
+                if learn_decay:
+                    self.lr = self.step_decay(i)
 
     def feed_forward(self, features):
         """
@@ -120,7 +132,7 @@ class FullyConnected:
             whl_t = np.transpose(self.nn[i+1])
             hcosts = whl_t.dot(hcosts)
             # get the gradients of this layer
-            hgradients = d_activfunction(hstate[i])
+            hgradients = d_activfunction(hstate[i], deriv=True)
             # multiply this layer's gradients by the cost of the -> layer.
             hgradients = np.multiply(hgradients, hcosts)
             # multiply the above by the learning rate scalar
@@ -172,6 +184,12 @@ class FullyConnected:
         print("NUMBER CORRECT: ",  correct, "OUT OF", len(features))
         print("AVERAGE COST: ", obj_cost/len(features))
 
+    def draw(self, costs, time):
+        self.graph.set_xdata(time)
+        self.graph.set_ydata(costs)
+        plt.draw()
+        plt.pause(.01)
+
 
 def one_hot(labels):
     """
@@ -181,10 +199,10 @@ def one_hot(labels):
     """
     # get number of unique labels
     unique = list(set(labels))
-    numclasses = len(unique)
+    num_classes = len(unique)
     one_hots = list()
     for label in labels:
-        onehot = np.zeros(numclasses)
+        onehot = np.zeros(num_classes)
         onehot[unique.index(label)] = 1
         one_hots.append(onehot)
     return one_hots
