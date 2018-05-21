@@ -22,7 +22,6 @@ class FullyConnected:
         self.nn = list()
         self.graph = None
         self.activation = activation
-        x = math.sqrt(6/(self.structure[0] + self.structure[-1]))
         for i in range(len(self.structure) - 1):
             self.nn.append(np.random.uniform(-1, 1, (self.structure[i+1], self.structure[i])))
             self.prev_deltas.append(np.zeros((self.structure[i+1], self.structure[i])))
@@ -48,30 +47,37 @@ class FullyConnected:
         self.lr_drop = lr_drop
         self.epochs_drop = epochs_drop
         self.momentum = momentum
+        count = 0
+        # set up graph variables
         avg_costs = list()
         time = list()
+        costs = np.zeros(batch_size)
         plt.ion()
         self.graph = plt.plot([1, 2, 3], [1, 2, 3])[0]
-        plt.axis([0, 100000, 0, 0.01])
-        for j in range(batch_size):
-            costs = np.zeros(batch_size)
-            for i, features in enumerate(features_list):
-                # store the nn's guess and a list of each layer's values
-                guess, states = self.feed_forward(features)
-                # calculate cost and compute the gradient
-                if self.structure[-1] != 1:
-                    labels[i] = labels[i][:, None]
-                cost = np.atleast_2d(np.subtract(labels[i], guess))
-                obj_cost = np.mean(np.abs(cost))
-                costs[j] = obj_cost
-                if i % batch_size == 0:
-                    avg_costs.append(np.average(costs))
-                    time.append(i)
-                    self.draw(avg_costs, time)
-                print("COST: ", obj_cost)
-                self.compute_gradient(cost, states)
-                if learn_decay:
-                    self.lr = self.step_decay(i)
+        plt.axis([0, len(features_list), 0, 1])
+        plt.xlabel("# of steps")
+        plt.ylabel("error")
+        for i, features in enumerate(features_list):
+            # store the nn's guess and a list of each layer's values
+            guess, states = self.feed_forward(features)
+            # calculate cost and compute the gradient
+            if self.structure[-1] != 1:
+                labels[i] = labels[i][:, None]
+            cost = np.atleast_2d(np.subtract(labels[i], guess))
+            obj_cost = np.mean(np.abs(cost))
+            costs[count] = obj_cost
+            count += 1
+            if i % batch_size == 0:
+                avg_costs.append(np.average(costs))
+                time.append(i)
+                self.draw(avg_costs, time)
+                costs = np.zeros(batch_size)
+                count = 0
+            # print("COST: ", obj_cost)
+            self.compute_gradient(cost, states)
+            if learn_decay:
+                self.lr = self.step_decay(i)
+        plt.show()
 
     def feed_forward(self, features):
         """
@@ -113,20 +119,16 @@ class FullyConnected:
         # multiply the output gradient by the transposed hidden layer.
         # This is the change to be applied to the output weights.
         weight_ho_deltas = np.dot(ogradient, hidden_t)
-
         self.bias[-1] = np.add(self.bias[-1], ogradient)
         self.nn[-1] = np.add(self.nn[-1], weight_ho_deltas)
         self.nn[-1] = np.add(self.nn[-1], self.momentum * self.prev_deltas[-1])
         self.prev_deltas[-1] = weight_ho_deltas
-
         #     #     #     #     HIDDEN LAYER     #     #     #     #
         hcosts = costs  # stores the cost of the -> layer
         hcount = len(hstate)
         for i in reversed(range(len(self.nn)-1)):
             # change activation function
             d_activfunction = np.vectorize(self.activation[i])
-            # calculate hidden gradient
-
             # gets the errors for this layer based on the dot product of the transposed -> layer's weights
             # and the error costs of that layer
             whl_t = np.transpose(self.nn[i+1])
@@ -137,13 +139,11 @@ class FullyConnected:
             hgradients = np.multiply(hgradients, hcosts)
             # multiply the above by the learning rate scalar
             hgradients = np.multiply(hgradients, self.lr)
-
             # transpose the <- layer's state
             if i == 0:
                 hidden_t = np.transpose(istate)
             else:
                 hidden_t = np.transpose(hstate[hcount-1])
-
             # multiply this layer's gradients by the transposed <- layer
             # This is the change to be applied to this layer's weights.
             weight_hh_deltas = np.dot(hgradients, hidden_t)
@@ -154,12 +154,13 @@ class FullyConnected:
             hcount -= 1
 
     def step_decay(self, epoch):
-        lr = self.initial_lr * pow(self.lr_drop,
-                                   math.floor((1+epoch) / self.epochs_drop))
+        """
+        Attempts to decay the learning rate if the epoch drop number specified by the user is met
+        :param epoch: current epoch
+        :return: the learning rate
+        """
+        lr = pow(self.lr_drop, math.floor((1+epoch) / self.epochs_drop)) * self.initial_lr
         return lr
-
-    def addconvlayers(self, structure, layers):
-        self.structure.insert(1, layers)
 
     def test(self, features, labels):
         """
@@ -184,11 +185,20 @@ class FullyConnected:
         print("NUMBER CORRECT: ",  correct, "OUT OF", len(features))
         print("AVERAGE COST: ", obj_cost/len(features))
 
-    def draw(self, costs, time):
-        self.graph.set_xdata(time)
-        self.graph.set_ydata(costs)
-        plt.draw()
-        plt.pause(.01)
+    def draw(self, costs=None, time=None):
+        """
+        updates the graph with the current costs and the current time
+        :param costs: current costs
+        :param time: current time
+        :return:
+        """
+        if not costs and not time:
+            plt.show(block=True)
+        else:
+            self.graph.set_xdata(time)
+            self.graph.set_ydata(costs)
+            plt.draw()
+            plt.pause(.01)
 
 
 def one_hot(labels):

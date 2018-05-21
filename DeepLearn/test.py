@@ -4,9 +4,9 @@ from DeepLearn import FullyConnected as nn
 from DeepLearn import Activation
 
 net = nn.FullyConnected([2, 12, 2], [Activation.sigmoid, Activation.sigmoid, Activation.sigmoid])
-data = np.zeros((100000, 2))
+data = np.zeros((10000, 2))
 answers = list()
-for n in range(100000):
+for n in range(10000):
     rand = np.random.randint(0, 2, 2)
     data[n] = rand
     if 1 in rand and 0 in rand:
@@ -21,4 +21,5 @@ for n in range(100000):
     #     labels.append(0)
 answers = nn.one_hot(answers)
 
-net.train(data, answers, 1000, batch_size=100, momentum=0.8, learning_rate=3)
+net.train(data, answers, 10000, batch_size=10, momentum=0.8, learning_rate=1)
+net.draw()
